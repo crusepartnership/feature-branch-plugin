@@ -1,5 +1,5 @@
 {
-  "name": "Feature Branch",
+  "name": "crusepartnership/feature-branch-plugin",
   "type": "composer-plugin",
   "require": {
     "composer-plugin-api": "^1.0"
