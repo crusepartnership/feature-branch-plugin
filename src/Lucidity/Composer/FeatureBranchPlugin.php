@@ -90,7 +90,7 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
         $featureJobs = [];
         foreach ($request->getJobs() as $job) {
             $packageMatches = isset($job['packageName']) && in_array($job['packageName'], $featureBranchRepositories);
-            $hasVersion = $packageMatches && count($pool->whatProvides($job['packageName'], $requiredConstraint));
+                $hasVersion = $packageMatches && count($pool->whatProvides($job['packageName'], $requiredConstraint));
             if ($hasVersion) {
                 $featureJobs[] = $job;
             }
