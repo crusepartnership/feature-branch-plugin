@@ -6,6 +6,7 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\InstallerEvent;
 use Composer\Installer\InstallerEvents;
 use Composer\IO\IOInterface;
+use Composer\Package\LinkConstraint\LinkConstraintInterface;
 use Composer\Package\LinkConstraint\VersionConstraint;
 use Composer\Plugin\PluginInterface;
 
@@ -74,6 +75,12 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
         }
     }
 
+    /**
+     * @param InstallerEvent          $event
+     * @param LinkConstraintInterface $requiredConstraint
+     *
+     * @return array
+     */
     private function featureJobs(InstallerEvent $event, LinkConstraintInterface $requiredConstraint)
     {
         $repositoryManager = $this->composer->getRepositoryManager();
