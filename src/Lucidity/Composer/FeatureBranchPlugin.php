@@ -85,7 +85,7 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     private function getFeatureBranchJobs(Request $request)
     {
         return array_filter($request->getJobs(), function ($job) {
-            return strpos($job['packageName'], 'crusepartnership') !== false;
+            return isset($job['packageName']) && strpos($job['packageName'], 'crusepartnership') !== false;
         });
     }
 }
