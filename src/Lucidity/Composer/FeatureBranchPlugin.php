@@ -83,14 +83,14 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
      */
     private function featureJobs(InstallerEvent $event, LinkConstraintInterface $requiredConstraint)
     {
-        $repositoryManager = $this->composer->getRepositoryManager();
-        $config = $this->composer->getConfig();
-        $featureBranchRepositories = $config->get('feature-branch-repositories') ?: [];
+        $pool = $event->getPool();
+        $extra = $this->composer->getPackage()->getExtra();
+        $featureBranchRepositories = isset($extra['feature-branch-repositories']) ? $extra['feature-branch-repositories'] : [];
         $request = $event->getRequest();
         $featureJobs = [];
         foreach ($request->getJobs() as $job) {
             $packageMatches = isset($job['packageName']) && in_array($job['packageName'], $featureBranchRepositories);
-            $hasVersion = $packageMatches && $repositoryManager->findPackage($job['packageName'], $requiredConstraint);
+            $hasVersion = $packageMatches && count($pool->whatProvides($job['packageName'], $requiredConstraint));
             if ($hasVersion) {
                 $featureJobs[] = $job;
             }
