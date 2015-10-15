@@ -2,10 +2,14 @@
 namespace Lucidity\Composer;
 
 use Composer\Composer;
+use Composer\DependencyResolver\Request;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\InstallerEvent;
 use Composer\Installer\InstallerEvents;
 use Composer\IO\IOInterface;
+use Composer\Package\LinkConstraint\MultiConstraint;
+use Composer\Package\LinkConstraint\VersionConstraint;
+use Composer\Package\RootPackageInterface;
 use Composer\Plugin\PluginInterface;
 
 class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
@@ -41,7 +45,7 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
      * * array('eventName' => 'methodName')
      * * array('eventName' => array('methodName', $priority))
      * * array('eventName' => array(array('methodName1', $priority), array('methodName2'))
-     *
+     **
      * @return array The event names to listen to
      */
     public static function getSubscribedEvents()
@@ -56,6 +60,32 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
      */
     public function resolveFeatureBranch(InstallerEvent $event)
     {
-        print_r($event);
+        $package = $event->getComposer()->getPackage();
+        $featureBranch = $this->featureBranchName($package);
+        if ($featureBranch !== null) {
+            $request = $event->getRequest();
+            $featureBranchConstraint = new VersionConstraint('=', $featureBranch);
+            foreach ($this->getFeatureBranchJobs($request) as $featureJob) {
+                $constraint = new MultiConstraint([$featureBranchConstraint, $featureJob['constraint']]);
+                $request->fix($featureJob['packageName'], $constraint);
+            }
+        }
+    }
+
+    /**
+     * @param RootPackageInterface $package
+     *
+     * @return string|null
+     */
+    private function featureBranchName(RootPackageInterface $package)
+    {
+        return $package->isDev() ? $package->getVersion() : null;
+    }
+
+    private function getFeatureBranchJobs(Request $request)
+    {
+        return array_filter($request->getJobs(), function ($job) {
+            return strpos($job['packageName'], 'crusepartnership') !== false;
+        });
     }
 }
