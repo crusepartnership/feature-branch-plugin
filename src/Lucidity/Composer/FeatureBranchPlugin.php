@@ -66,7 +66,7 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
             $request = $event->getRequest();
             $featureBranchConstraint = new VersionConstraint('=', $featureBranch);
             foreach ($this->getFeatureBranchJobs($request) as $featureJob) {
-                $constraint = new MultiConstraint([$featureBranchConstraint, $featureJob['constraint']]);
+                $constraint = new MultiConstraint([$featureBranchConstraint, $featureJob['constraint']], false);
                 $request->fix($featureJob['packageName'], $constraint);
             }
         }
