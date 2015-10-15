@@ -2,20 +2,23 @@
 namespace Lucidity\Composer;
 
 use Composer\Composer;
-use Composer\DependencyResolver\Request;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\InstallerEvent;
 use Composer\Installer\InstallerEvents;
 use Composer\IO\IOInterface;
-use Composer\Package\LinkConstraint\MultiConstraint;
 use Composer\Package\LinkConstraint\VersionConstraint;
-use Composer\Package\RootPackageInterface;
 use Composer\Plugin\PluginInterface;
 
 class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
 {
+    /**
+     * @var Composer
+     */
     protected $composer;
 
+    /**
+     * @var IOInterface
+     */
     protected $io;
 
     /**
@@ -61,31 +64,30 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     public function resolveFeatureBranch(InstallerEvent $event)
     {
         $package = $event->getComposer()->getPackage();
-        $featureBranch = $this->featureBranchName($package);
+        $featureBranch = $package->isDev() ? $package->getVersion() : null;
         if ($featureBranch !== null) {
             $request = $event->getRequest();
             $featureBranchConstraint = new VersionConstraint('=', $featureBranch);
-            foreach ($this->getFeatureBranchJobs($request) as $featureJob) {
-                $constraint = new MultiConstraint([$featureBranchConstraint, $featureJob['constraint']], false);
-                $request->fix($featureJob['packageName'], $constraint);
+            foreach ($this->featureJobs($event, $featureBranchConstraint) as $featureJob) {
+                $request->fix($featureJob['packageName'], $featureBranchConstraint);
             }
         }
     }
 
-    /**
-     * @param RootPackageInterface $package
-     *
-     * @return string|null
-     */
-    private function featureBranchName(RootPackageInterface $package)
+    private function featureJobs(InstallerEvent $event, LinkConstraintInterface $requiredConstraint)
     {
-        return $package->isDev() ? $package->getVersion() : null;
-    }
-
-    private function getFeatureBranchJobs(Request $request)
-    {
-        return array_filter($request->getJobs(), function ($job) {
-            return isset($job['packageName']) && strpos($job['packageName'], 'crusepartnership') !== false;
-        });
+        $repositoryManager = $this->composer->getRepositoryManager();
+        $config = $this->composer->getConfig();
+        $featureBranchRepositories = $config->get('feature-branch-repositories') ?: [];
+        $request = $event->getRequest();
+        $featureJobs = [];
+        foreach ($request->getJobs() as $job) {
+            $packageMatches = isset($job['packageName']) && in_array($job['packageName'], $featureBranchRepositories);
+            $hasVersion = $packageMatches && $repositoryManager->findPackage($job['packageName'], $requiredConstraint);
+            if ($hasVersion) {
+                $featureJobs[] = $job;
+            }
+        }
+        return $featureJobs;
     }
 }
