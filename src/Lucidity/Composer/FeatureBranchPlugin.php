@@ -3,8 +3,6 @@ namespace Lucidity\Composer;
 
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
-use Composer\Installer\InstallerEvent;
-use Composer\Installer\InstallerEvents;
 use Composer\IO\IOInterface;
 use Composer\Package\Link;
 use Composer\Plugin\PluginInterface;
@@ -65,14 +63,8 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     {
         return [
             ScriptEvents::PRE_INSTALL_CMD => ['resolveFeatureBranch', 0],
-            ScriptEvents::PRE_UPDATE_CMD => ['resolveFeatureBranch', 0],
-            InstallerEvents::PRE_DEPENDENCIES_SOLVING => ['hello', 0]
+            ScriptEvents::PRE_UPDATE_CMD => ['resolveFeatureBranch', 0]
         ];
-    }
-
-    public function hello(InstallerEvent $event)
-    {
-        $event = $event;
     }
 
     public function resolveFeatureBranch(Event $event)
