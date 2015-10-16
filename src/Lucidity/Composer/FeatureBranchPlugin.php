@@ -6,9 +6,11 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer\InstallerEvent;
 use Composer\Installer\InstallerEvents;
 use Composer\IO\IOInterface;
-use Composer\Package\LinkConstraint\LinkConstraintInterface;
-use Composer\Package\LinkConstraint\VersionConstraint;
+use Composer\Package\Link;
 use Composer\Plugin\PluginInterface;
+use Composer\Script\Event;
+use Composer\Script\ScriptEvents;
+use Composer\Semver\Constraint\Constraint;
 
 class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
 {
@@ -23,6 +25,11 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     protected $io;
 
     /**
+     * @var array
+     */
+    protected $featureBranchRepositories;
+
+    /**
      * Apply plugin modifications to composer
      *
      * @param Composer    $composer
@@ -32,6 +39,8 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     {
         $this->composer = $composer;
         $this->io = $io;
+        $extra = $composer->getPackage()->getExtra();
+        $this->featureBranchRepositories = isset($extra['feature-branch-repositories']) ? $extra['feature-branch-repositories'] : [];
     }
 
     /**
@@ -55,46 +64,46 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     public static function getSubscribedEvents()
     {
         return [
-            InstallerEvents::PRE_DEPENDENCIES_SOLVING => ['resolveFeatureBranch', 0]
+            ScriptEvents::PRE_INSTALL_CMD => ['resolveFeatureBranch', 0],
+            ScriptEvents::PRE_UPDATE_CMD => ['resolveFeatureBranch', 0],
+            InstallerEvents::PRE_DEPENDENCIES_SOLVING => ['hello', 0]
         ];
     }
 
-    /**
-     * @param InstallerEvent $event
-     */
-    public function resolveFeatureBranch(InstallerEvent $event)
+    public function hello(InstallerEvent $event)
     {
-        $package = $event->getComposer()->getPackage();
-        $featureBranch = $package->isDev() ? $package->getVersion() : null;
-        if ($featureBranch !== null) {
-            $request = $event->getRequest();
-            $featureBranchConstraint = new VersionConstraint('=', $featureBranch);
-            foreach ($this->featureJobs($event, $featureBranchConstraint) as $featureJob) {
-                $request->fix($featureJob['packageName'], $featureBranchConstraint);
+        $event = $event;
+    }
+
+    public function resolveFeatureBranch(Event $event)
+    {
+        $package = $this->composer->getPackage();
+        if ($package->isDev()) {
+            $featureBranchConstraint = new Constraint('=', $package->getVersion());
+            $featureBranchConstraint->setPrettyString($package->getVersion());
+            $requires = $package->getRequires();
+            foreach ($requires as $key => $require) {
+                if ($this->hasFeatureBranch($require, $featureBranchConstraint)) {
+                    $requires[$key] = new Link(
+                        $require->getSource(),
+                        $require->getTarget(),
+                        $featureBranchConstraint,
+                        'requires',
+                        $featureBranchConstraint->getPrettyString()
+                    );
+                }
             }
+            $package->setRequires($requires);
         }
     }
 
-    /**
-     * @param InstallerEvent          $event
-     * @param LinkConstraintInterface $requiredConstraint
-     *
-     * @return array
-     */
-    private function featureJobs(InstallerEvent $event, LinkConstraintInterface $requiredConstraint)
+    private function hasFeatureBranch(Link $require, Constraint $requiredConstraint)
     {
-        $pool = $event->getPool();
-        $extra = $this->composer->getPackage()->getExtra();
-        $featureBranchRepositories = isset($extra['feature-branch-repositories']) ? $extra['feature-branch-repositories'] : [];
-        $request = $event->getRequest();
-        $featureJobs = [];
-        foreach ($request->getJobs() as $job) {
-            $packageMatches = isset($job['packageName']) && in_array($job['packageName'], $featureBranchRepositories);
-                $hasVersion = $packageMatches && count($pool->whatProvides($job['packageName'], $requiredConstraint));
-            if ($hasVersion) {
-                $featureJobs[] = $job;
-            }
+        if (in_array($require->getTarget(), $this->featureBranchRepositories) &&
+            $this->composer->getRepositoryManager()->findPackage($require->getTarget(), $requiredConstraint)
+        ) {
+            return true;
         }
-        return $featureJobs;
+        return false;
     }
 }
