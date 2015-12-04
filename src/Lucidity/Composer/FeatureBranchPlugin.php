@@ -5,6 +5,7 @@ use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\IO\IOInterface;
 use Composer\Package\Link;
+use Composer\Package\PackageInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
@@ -62,12 +63,17 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     public static function getSubscribedEvents()
     {
         return [
-            ScriptEvents::PRE_INSTALL_CMD => ['resolveFeatureBranch', 0],
+            ScriptEvents::PRE_INSTALL_CMD => ['cleanAndResolveBranch', 0],
             ScriptEvents::PRE_UPDATE_CMD => ['resolveFeatureBranch', 0]
         ];
     }
 
-    public function resolveFeatureBranch(Event $event)
+    public function cleanAndResolveBranch(Event $event)
+    {
+        return $this->resolveFeatureBranch($event, true);
+    }
+
+    public function resolveFeatureBranch(Event $event, $clean = false)
     {
         $package = $this->composer->getPackage();
         if ($package->isDev()) {
@@ -89,12 +95,54 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
         }
     }
 
+    private function updateLock(Link $require, PackageInterface $package)
+    {
+//        $this->composer->getLocker()->
+//        $locker = $this->composer->getLocker();
+//        if ($locker->isLocked()) {
+//            $data = $locker->getLockData();
+//            foreach ($data['packages'] as &$lockerPackage) {
+//                if ($lockerPackage['name'] === $package->getName()) {
+//                    $lockerPackage['source']['reference'] = $package->getSourceReference();
+//                    $lockerPackage['dist']['reference'] = $package->getDistReference();
+//                }
+//            }
+//            $locker->setLockData(
+//                $this->composer->getPackage()->pl
+//                array_diff($localRepo->getCanonicalPackages(), (array)$devPackages),
+//                $devPackages,
+//                $platformReqs,
+//                $platformDevReqs,
+//                $aliases,
+//                $this->composer->getLocker()->getMinimumStability(),
+//                $this->composer->getLocker()->getStabilityFlags(),
+//                $this->composer->getLocker()->getPreferStable(),
+//                $this->composer->getLocker()->getPreferLowest(),
+//                $this->composer->getConfig()->get('platform')
+//            );
+//            $locker->setLockData(
+//                $data['packages'],
+//                isset($data['packages-dev']) ? $data['packages-dev'] : null,
+//                $data['platform'],
+//                isset($data['platform-dev']) ? $data['platform-dev'] : null,
+//                $data['aliases'],
+//                $data['minimum-stability'],
+//                $data['stability-flags'],
+//                $data['prefer-stable'],
+//                $data['prefer-lowest'],
+//                isset($data['platform-overrides']) ? $data['platform-overrides'] : []
+//            );
+//        }
+    }
+
     private function hasFeatureBranch(Link $require, Constraint $requiredConstraint)
     {
-        if (in_array($require->getTarget(), $this->featureBranchRepositories) &&
-            $this->composer->getRepositoryManager()->findPackage($require->getTarget(), $requiredConstraint)
-        ) {
-            return true;
+        if (in_array($require->getTarget(), $this->featureBranchRepositories)) {
+            $package = $this->composer->getRepositoryManager()->findPackage($require->getTarget(), $requiredConstraint);
+            if ($package instanceof PackageInterface) {
+                $this->updateLock($require, $package);
+                return true;
+            }
         }
         return false;
     }
