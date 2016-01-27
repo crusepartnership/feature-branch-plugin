@@ -9,6 +9,7 @@ use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
 use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\VersionParser;
 
 class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
 {
@@ -28,17 +29,29 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
     protected $featureBranchRepositories;
 
     /**
+     * @var array
+     */
+    protected $featureBranchFallbacks;
+
+    /**
+     * @var VersionParser
+     */
+    protected $versionParser;
+
+    /**
      * Apply plugin modifications to composer
      *
-     * @param Composer    $composer
+     * @param Composer $composer
      * @param IOInterface $io
      */
     public function activate(Composer $composer, IOInterface $io)
     {
+        $this->versionParser = new VersionParser();
         $this->composer = $composer;
         $this->io = $io;
         $extra = $composer->getPackage()->getExtra();
         $this->featureBranchRepositories = isset($extra['feature-branch-repositories']) ? $extra['feature-branch-repositories'] : [];
+        $this->featureBranchFallbacks = isset($extra['feature-branch-fallbacks']) ? $extra['feature-branch-fallbacks'] : [];
     }
 
     /**
@@ -75,11 +88,15 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
         }
         $package = $this->composer->getPackage();
         if ($package->isDev()) {
-            $featureBranchConstraint = new Constraint('=', $package->getVersion());
+            $featureBranchConstraint = new Constraint('=', $this->versionParser->normalize($package->getVersion()));
             $featureBranchConstraint->setPrettyString($package->getVersion());
             $requires = $package->getRequires();
-            $this->io->write(sprintf("<info>Checking for feature branch '%s'</info>",
-                $featureBranchConstraint->getPrettyString()));
+            $this->io->write(
+                sprintf(
+                    "<info>Checking for feature branch '%s'</info>",
+                    $featureBranchConstraint->getPrettyString()
+                )
+            );
             foreach ($requires as $key => $require) {
                 if ($this->hasFeatureBranch($require, $featureBranchConstraint)) {
                     $requires[$key] = new Link(
@@ -89,22 +106,58 @@ class FeatureBranchPlugin implements PluginInterface, EventSubscriberInterface
                         'requires',
                         $featureBranchConstraint->getPrettyString()
                     );
+                } else {
+                    $fallbackBranch = $this->getFallbackBranch($require);
+                    if ($fallbackBranch !== false) {
+                        $fallbackConstraint = new Constraint('=', $this->versionParser->normalize($fallbackBranch));
+                        $fallbackConstraint->setPrettyString($fallbackBranch);
+                        $requires[$key] = new Link(
+                            $require->getSource(),
+                            $require->getTarget(),
+                            $fallbackConstraint,
+                            'requires',
+                            $fallbackConstraint->getPrettyString()
+                        );
+                    }
                 }
+                $this->io->write('');
             }
             $package->setRequires($requires);
         }
     }
 
+    private function isFeatureBranchRepository(Link $require)
+    {
+        return in_array($require->getTarget(), $this->featureBranchRepositories);
+    }
+
+    private function hasFallbackBranch(Link $require)
+    {
+        return isset($this->featureBranchFallbacks[$require->getTarget()]);
+    }
+
     private function hasFeatureBranch(Link $require, Constraint $requiredConstraint)
     {
-        if (in_array($require->getTarget(), $this->featureBranchRepositories)) {
+        if ($this->isFeatureBranchRepository($require)) {
             $this->io->write(sprintf('<info>%s</info>', $require->getTarget()), false);
             $package = $this->composer->getRepositoryManager()->findPackage($require->getTarget(), $requiredConstraint);
             if ($package) {
-                $this->io->write(" - <info>switching to branch</info>");
+                $this->io->write(" - <info>switching to branch</info>", false);
                 return true;
             }
-            $this->io->write(" - <warning>branch not found</warning>");
+            $this->io->write(" - <warning>branch not found</warning>", false);
+        }
+        return false;
+    }
+
+    private function getFallbackBranch(Link $require)
+    {
+        if ($this->isFeatureBranchRepository($require)) {
+            if ($this->hasFallbackBranch($require)) {
+                $fallbackBranch = $this->featureBranchFallbacks[$require->getTarget()];
+                $this->io->write(sprintf("<info> - falling back to %s</info>", $fallbackBranch), false);
+                return $fallbackBranch;
+            }
         }
         return false;
     }
