@@ -14,7 +14,10 @@ Subsequent `composer update` calls will use matching feature branches (or fall b
 	"extra": {
       "feature-branch-repositories": [
         "crusepartnership/super-repo"
-      ]
+      ],
+      "feature-branch-fallbacks": {
+        "crusepartnership/super-repo": "master"
+      }
     }     
 ```
 
