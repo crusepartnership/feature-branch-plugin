@@ -2,7 +2,7 @@
   "name": "crusepartnership/feature-branch-plugin",
   "type": "composer-plugin",
   "require": {
-    "composer-plugin-api": "^1.0"
+    "composer-plugin-api": "^2.0"
   },
 
   "autoload": {
@@ -15,6 +15,6 @@
   },
   "minimum-stability": "dev",
   "require-dev": {
-    "composer/composer": "^1.0@dev"
+    "composer/composer": "^2.0@dev"
   }
 }
