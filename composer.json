@@ -1,20 +1,19 @@
 {
-  "name": "crusepartnership/feature-branch-plugin",
-  "type": "composer-plugin",
-  "require": {
-    "composer-plugin-api": "^2.0"
-  },
-
-  "autoload": {
-    "psr-0": {
-      "Lucidity\\Composer\\": "src/"
-    }
-  },
-  "extra": {
-    "class": "Lucidity\\Composer\\FeatureBranchPlugin"
-  },
-  "minimum-stability": "dev",
-  "require-dev": {
-    "composer/composer": "^2.0"
-  }
+    "name": "crusepartnership/feature-branch-plugin",
+    "type": "composer-plugin",
+    "require": {
+        "composer-plugin-api": "^2.0"
+    },
+    "require-dev": {
+        "composer/composer": "^2.0"
+    },
+    "autoload": {
+        "psr-0": {
+            "Lucidity\\Composer\\": "src/"
+        }
+    },
+    "extra": {
+        "class": "Lucidity\\Composer\\FeatureBranchPlugin"
+    },
+    "minimum-stability": "dev"
 }
